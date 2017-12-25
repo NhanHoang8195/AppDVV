@@ -1,7 +1,7 @@
 <template>
 <div>
   <gmap-map :center="center" :zoom="7" style="width: 500px; height: 300px">
-    <gmap-marker v-for="marker in markers" :position="marker.geometry.location" :clickable="true" :draggable="true" @click="center=marker.geometry.location"></gmap-marker>
+    <gmap-marker :key="index" v-for="(marker, index) in markers" :position="marker.location" :clickable="true" :draggable="true" @click="center=marker.location"></gmap-marker>
   </gmap-map>
 </div>
 </template>
@@ -33,18 +33,10 @@ export default {
           }
         }).then(
           responseGoogle => {
-
-            //   console.log(response.body.results[0].geometry);
-            //   console.log(response.body.results[0].geometry.location.lat);
-            //this.markers = responseGoogle.body.results;
-
-            this.markers.push(responseGoogle.body.results);
-            console.log(this.markers);
-            // this.center.lat = responseGoogle.body.results.geometry.location.lat;
-            // this.center.lng = responseGoogle.body.results[0].geometry.location.lng;
-
-
-          }, responseGoogle => (console.log(responseGoogle))
+            this.markers.push(responseGoogle.body.results[0].geometry);
+          }, responseGoogle => {
+            (console.log(responseGoogle))
+          }
         )
       }
     }, response => {
