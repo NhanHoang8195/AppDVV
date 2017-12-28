@@ -38,16 +38,16 @@
           <th>Địa điểm đón</th>
           <th>Status</th>
           <th>Định vị lại</th>
+          <th>Điều xe</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="marker in markers">
-          <template>
+        <tr v-for="(marker, index) in markers">
           <td>{{marker.phone}}</td>
           <td>{{marker.address}}</td>
           <td>{{marker.status}}</td>
-          <td><center><button class="btn btn-primary btn-sm"  data-toggle="modal" data-target="#myModal" ><span class="glyphicon glyphicon-cog glyphicon"></span></button></center></td>
-          </template>
+          <td><center><button @click.prevent="sadfasdfasdf(marker)"  class="btn btn-primary btn-sm"  data-toggle="modal" data-target="#myModal" ><span class="glyphicon glyphicon-cog glyphicon"></span></button></center></td>
+          <td><button class="btn btn-primary" >Điều xe</button></td>
           <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
             <div class="modal-dialog" role="document">
               <div class="modal-content">
@@ -59,20 +59,23 @@
                   <div class="input-group">
                     <input v-model="searchValue" type="text" class="form-control" placeholder="Nhập địa chỉ cần Geocoding" onfocus="this.placeholder=''" onblur="this.placeholder='Nhập địa chỉ cần Geocoding'">
                     <span class="input-group-btn">
-                      <button class="btn btn-default" type="button" style="border-left:0px"><span class="glyphicon glyphicon-search"></span></button>
+                      <button @click="search" class="btn btn-default" type="button" style="border-left:0px"><span class="glyphicon glyphicon-search"></span></button>
                     </span>
                   </div>
                   <div>
-                    <label>Kết quả Geocoding:</label> {{}}
+                    <label>Ý bạn là: {{index}}</label>
+                    <p v-if="newAddress">{{newAddress.formatted_address}}</p>
+                    <p v-else style="color:red">Không tìm thấy kết quả</p>
                   </div>
                 </div>
                 <div class="modal-footer">
                   <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                  <button type="button" class="btn btn-primary" @click.prevent="changeStatus(marker)" data-dismiss="modal">Save changes</button>
+                  <button type="button" :disabled="disabled" class="btn btn-primary" @click="saveChange(obj)" data-dismiss="modal">Save changes</button>
                 </div>
               </div>
             </div>
           </div>
+
         </tr>
 
       </tbody>
@@ -112,7 +115,8 @@ export default {
       displayInfo: false,
       obj: {},
       newAddress: {},
-
+      disabled:true,
+      agreechange: false // click button save change;
     }
   },
   methods: {
@@ -124,14 +128,44 @@ export default {
       this.displayInfo = true;
       this.obj = obj;
     },
-    changeStatus: function(obj) {
+    search: function() {  // click search button => find address
       this.$http.get('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           address: this.searchValue
         }
       }).then(responseGoogle => {
+        return responseGoogle;
 
-      }, {})
+      }, {}).then(success => {
+        this.newAddress = success.body.results[0];
+        if(this.newAddress.geometry ==='undefined') {
+          this.disabled = true;
+        } else {
+          this.disabled = false;
+        }
+      }, exception => {
+        this.disabled=true;
+      }).catch( ()=>{
+        this.disabled = true;
+      });
+
+    },
+    saveChange: function(obj) {
+      var path = 'user-info' + '/' + obj['.key'];
+      console.log(obj);
+       var newModel = db.ref(path);
+      let newDataModel= {
+        address: this.newAddress.formatted_address,
+        phone: obj.phone,
+        typeCar: obj.typeCar,
+        note: obj.note,
+        location:this.newAddress.geometry.location,
+        status: "DA-DINH-VI"
+      };
+      newModel.set(newDataModel);
+    },
+    sadfasdfasdf: function(obj){
+      this.obj = obj;
     }
 
   },
