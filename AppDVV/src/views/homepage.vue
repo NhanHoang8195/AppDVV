@@ -2,7 +2,12 @@
 <div>
   <div class="col-sm-5">
     <gmap-map :center="center" :zoom="4" style="height: 300px">
-      <gmap-marker :key="index" v-for="(marker, index) in markers" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="index.toString()"></gmap-marker>
+      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'K'" :icon="'./src/assets/images/khach.png'"></gmap-marker>
+      <template v-for="(marker, i) in taixe">
+        <gmap-marker :key="i" v-if="marker.status==='DANG-SAN-SANG'"  :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'T'" :icon="'./src/assets/images/taixe.png'" ></gmap-marker>
+      </template>
+
+
     </gmap-map>
     <template v-if="displayInfo">
       <div>
@@ -32,9 +37,6 @@
                       <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         <h4 class="modal-title" id="myModalLabel">Bạn muốn chọn {{obj.address}} làm địa chỉ mới?</h4>
-                      </div>
-                      <div class="modal-body">
-                      fdsfas
                       </div>
                       <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
@@ -66,6 +68,8 @@
       </thead>
       <tbody>
         <tr v-for="(marker, index) in markers">
+          <template>
+          </template>
           <td>{{marker.phone}}</td>
           <td>{{marker.address}}</td>
           <td>{{marker.status}}</td>
@@ -73,7 +77,7 @@
           <td>
             <center><button @click.prevent="sendMarker(marker)" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal"><span class="glyphicon glyphicon-cog glyphicon"></span></button></center>
           </td>
-          <td><button class="btn btn-primary">Điều xe</button></td>
+          <td><button class="btn btn-primary" @click="dieuxe(marker)">Điều xe</button></td>
           <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
             <div class="modal-dialog" role="document">
               <div class="modal-content">
@@ -101,7 +105,6 @@
               </div>
             </div>
           </div>
-
         </tr>
 
       </tbody>
@@ -113,7 +116,6 @@
 
 </div>
 </template>
-
 <script>
 import Firebase from 'firebase'
 let config = {
@@ -127,9 +129,11 @@ let config = {
 let app = Firebase.initializeApp(config);
 let db = app.database();
 let userInfoRef = db.ref('user-info');
+let taixeInfoRef = db.ref('taixe-info');
 export default {
   firebase: {
-    markers: userInfoRef
+    markers: userInfoRef,
+    taixe: taixeInfoRef
   },
   data() {
     return {
@@ -144,8 +148,6 @@ export default {
       newAddress: {},
       disabled: true,
       reverseAddress: []
-
-      //  agreechange: false // click button save change;
     }
   },
   methods: {
@@ -200,7 +202,7 @@ export default {
       console.log(path);
       if (this.newAddress.hasOwnProperty('formatted_address')) {
         let newDataModel = {
-          address: this.newAddress.formatted_address,
+          address:obj.address,
           phone: obj.phone,
           typeCar: obj.typeCar,
           date: obj.date,
@@ -228,11 +230,39 @@ export default {
       } else {
         console.log('yyy');
         console.log(this.obj);
-        this.obj.address = obj.formatted_address;
         this.obj.location = obj.geometry.location;
       }
-    }
+    },
+    dieuxe: function(obj) {
+    //  let path = db.ref('taixe-info');
+    //.spherical.computeDistanceBetween((10.7340344,106.7215787), (10.787273, 106.74981));
 
+    let source  = new google.maps.LatLng(obj.location.lat, obj.location.lng);
+      let min = 6378137;
+      let taixeMin = {}
+
+      for(let i = 0; i < this.taixe.length; i++) {
+        let temp = new google.maps.LatLng(this.taixe[i].location.lat, this.taixe[i].location.lng);
+        let distance  =  google.maps.geometry.spherical.computeDistanceBetween(source, temp);
+        if(distance < min && typeof this.taixe[i].khachhang ==='undefined') {  // tai xe khong co danh sach khach trong hang doi
+          min = distance;
+          taixeMin = this.taixe[i];
+        }
+      }
+      // tai xe chac chan khong co hanh khach trong hang doi
+    if(!taixeMin.hasOwnProperty('khachhang')){
+      var path = 'taixe-info' + '/' + taixeMin['.key'];
+      var updateTaixe = db.ref(path);
+      console.log(path);
+      delete obj['.key'];
+      taixeMin.khachhang = obj;
+      delete taixeMin['.key'];
+      updateTaixe.set(taixeMin);
+
+    } else {
+       console.log('Khong tim thay xe');
+    }
+  }
   },
   created() {
     //  this.label=

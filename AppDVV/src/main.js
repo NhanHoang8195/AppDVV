@@ -9,7 +9,7 @@ Vue.use(VueFire);
 Vue.use(VueGoogleApps, {
   load: {
     key: 'AIzaSyDfVVSKQjGSDWKsN1U-bF9atJSfWXaYWhw',
-    libraries: 'places'
+    libraries: 'places,geometry'
   }
 })
 new Vue({
