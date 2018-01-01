@@ -2,12 +2,10 @@
 <div>
   <div class="col-sm-5">
     <gmap-map :center="center" :zoom="4" style="height: 300px">
-      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'K'" :icon="'./src/assets/images/khach.png'"></gmap-marker>
+      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" v-if="marker.status!=='DA-CO-XE'" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'K'" :icon="'./src/assets/images/khach.png'"></gmap-marker>
       <template v-for="(marker, i) in taixe">
         <gmap-marker :key="i" v-if="marker.status==='DANG-SAN-SANG'"  :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'T'" :icon="'./src/assets/images/taixe.png'" ></gmap-marker>
       </template>
-
-
     </gmap-map>
     <template v-if="displayInfo">
       <div>
@@ -68,8 +66,6 @@
       </thead>
       <tbody>
         <tr v-for="(marker, index) in markers">
-          <template>
-          </template>
           <td>{{marker.phone}}</td>
           <td>{{marker.address}}</td>
           <td>{{marker.status}}</td>
@@ -77,7 +73,16 @@
           <td>
             <center><button @click.prevent="sendMarker(marker)" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal"><span class="glyphicon glyphicon-cog glyphicon"></span></button></center>
           </td>
-          <td><button class="btn btn-primary" @click="dieuxe(marker)">Điều xe</button></td>
+          <td>
+              <template v-if="marker.status==='DA-DINH-VI' || marker.status==='CAN-DINH-VI'">
+
+                <button v-if="marker.status==='DA-DINH-VI'"  class="btn btn-primary" @click="dieuxe(marker)">Điều xe</button>
+                <button v-else class="btn btn-primary" :disabled="true" >Điều xe</button>
+              </template>
+               <template v-else> <!--DA-CO-XE -->
+                <label>Đã có xe</label>
+              </template>
+          </td>
           <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
             <div class="modal-dialog" role="document">
               <div class="modal-content">
@@ -147,13 +152,12 @@ export default {
       obj: {},
       newAddress: {},
       disabled: true,
-      reverseAddress: []
+      reverseAddress: [],
+      dieuxeStatus: false
     }
   },
   methods: {
     dragMarker: function(event, obj) { // keo tha vi tri hien tai
-      // console.log(event.latLng.lat());
-      // console.log(event.latLng.lng());
       this.displayInfo = true;
       this.obj = obj;
 
@@ -199,7 +203,6 @@ export default {
     saveChange: function(obj) {
       var path = 'user-info' + '/' + obj['.key'];
       var newModel = db.ref(path);
-      console.log(path);
       if (this.newAddress.hasOwnProperty('formatted_address')) {
         let newDataModel = {
           address:obj.address,
@@ -212,11 +215,9 @@ export default {
         };
         newModel.set(newDataModel);
         this.newAddress = {};
-        console.log('newDataModel');
       } else {
         delete obj['.key'];
         newModel.set(obj);
-        console.log('Object');
 
       }
 
@@ -226,43 +227,40 @@ export default {
     sendMarker: function(obj) {
       if (typeof obj.formatted_address === 'undefined') { // drag send object
         this.obj = obj;
-        console.log('xxx');
       } else {
-        console.log('yyy');
-        console.log(this.obj);
         this.obj.location = obj.geometry.location;
       }
     },
     dieuxe: function(obj) {
-    //  let path = db.ref('taixe-info');
-    //.spherical.computeDistanceBetween((10.7340344,106.7215787), (10.787273, 106.74981));
+    //  console.log(obj);
+          let source  = new google.maps.LatLng(obj.location.lat, obj.location.lng);
+            let min = 6378137;
+            let taixeMin = {};
 
-    let source  = new google.maps.LatLng(obj.location.lat, obj.location.lng);
-      let min = 6378137;
-      let taixeMin = {}
-
-      for(let i = 0; i < this.taixe.length; i++) {
-        let temp = new google.maps.LatLng(this.taixe[i].location.lat, this.taixe[i].location.lng);
-        let distance  =  google.maps.geometry.spherical.computeDistanceBetween(source, temp);
-        if(distance < min && typeof this.taixe[i].khachhang ==='undefined') {  // tai xe khong co danh sach khach trong hang doi
-          min = distance;
-          taixeMin = this.taixe[i];
+            for(let i = 0; i < this.taixe.length; i++) {
+              let temp = new google.maps.LatLng(this.taixe[i].location.lat, this.taixe[i].location.lng);
+              let distance  =  google.maps.geometry.spherical.computeDistanceBetween(source, temp);
+              if(distance < min && typeof this.taixe[i].khachhang ==='undefined' ) {  // tai xe khong co danh sach khach trong hang doi
+                min = distance;
+                taixeMin = this.taixe[i];
+              }
+            }
+          //  tai xe chac chan khong co hanh khach trong hang doi
+          console.log(taixeMin);
+          if(!taixeMin.hasOwnProperty('khachhang')){
+            var path = 'taixe-info' + '/' + taixeMin['.key'];
+            var updateTaixe = db.ref(path);
+            taixeMin.keyUser= obj['.key'];
+            delete obj['.key'];
+            taixeMin.khachhang = obj;
+            delete taixeMin['.key'];
+            updateTaixe.set(taixeMin);
+            this.dieuxeStatus = true;
+          } else {
+            //taixeMin.status='DANG-CHO-KHACH'
+             this.dieuxeStatus = false;
+          }
         }
-      }
-      // tai xe chac chan khong co hanh khach trong hang doi
-    if(!taixeMin.hasOwnProperty('khachhang')){
-      var path = 'taixe-info' + '/' + taixeMin['.key'];
-      var updateTaixe = db.ref(path);
-      console.log(path);
-      delete obj['.key'];
-      taixeMin.khachhang = obj;
-      delete taixeMin['.key'];
-      updateTaixe.set(taixeMin);
-
-    } else {
-       console.log('Khong tim thay xe');
-    }
-  }
   },
   created() {
     //  this.label=
