@@ -2,10 +2,10 @@
 <div>
   <div class="col-sm-5">
     <gmap-map :center="center" :zoom="4" style="height: 300px">
-      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" v-if="marker.status!=='DA-CO-XE'" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'K'"
+      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" v-if="marker.status!=='DA-CO-XE' && marker.status!=='KET-THUC'" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'K'"
         :icon="'./src/assets/images/khach.png'"></gmap-marker>
       <template v-for="(marker, i) in taixe">
-        <gmap-marker :key="i" v-if="marker.status==='DANG-SAN-SANG'"  :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'T'" :icon="'./src/assets/images/taixe.png'" ></gmap-marker>
+        <gmap-marker :key="i" v-if="marker.status!=='DANG-CHO-KHACH'"  :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'T'" :icon="'./src/assets/images/taixe.png'" ></gmap-marker>
       </template>
     </gmap-map>
     <template v-if="displayInfo">
@@ -66,7 +66,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(marker, index) in markers">
+        <tr v-for="(marker, index) in markers" v-if="marker.status!=='KET-THUC'">
           <td>{{marker.phone}}</td>
           <td>{{marker.address}}</td>
           <td>{{marker.status}}</td>
@@ -77,8 +77,8 @@
           <td>
             <button class="btn btn-primary btn-sm" v-if="marker.status==='DA-DINH-VI'" @click="dieuxe(marker)"> Điều xe</button>
             <button v-else-if="marker.status==='DANG-TIM-XE'" class="btn btn-primary btn-sm" :disabled="true" @click="">Đang tìm xe</button>
-            <button v-else-if="marker.status==='DA-CO-XE'" :disabled="true">Đã có xe</button>
-            <button v-else-if="marker.status==='KHONG-CO-XE'" @click="dieuxe(marker)">Tìm lại</button>
+            <button v-else-if="marker.status==='DA-CO-XE'" :disabled="true" class="btn btn-success btn-sm">Đã có xe</button>
+            <button v-else-if="marker.status==='KHONG-CO-XE'" @click="dieuxe(marker)" class="btn btn-danger btn-sm">Tìm lại</button>
           </td>
           <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
             <div class="modal-dialog" role="document">
@@ -232,48 +232,32 @@ export default {
       //this.dieuxeStatus = true;
       let source = new google.maps.LatLng(obj.location.lat, obj.location.lng);
       let radius = 6378137; // ban kinh tim kiem
-      console.log(this.taixe.length);
       for (let i = 0; i < this.taixe.length; i++) {
         let temp = new google.maps.LatLng(this.taixe[i].location.lat, this.taixe[i].location.lng);
         let distance = google.maps.geometry.spherical.computeDistanceBetween(source, temp);
-        console.log(obj['.key']);
-        if (distance < radius) { // gui thong bao co khach toi tai xe trong ban kinh radius
-          var path = 'taixe-info' + '/' + this.taixe[i]['.key'];
-          var updateTaixe = db.ref(path);
-          this.taixe[i].keyUser = obj['.key'];
-          this.taixe[i].status = 'WAITING-CONFIRM';
-          delete this.taixe[i]['.key'];
-          updateTaixe.set(this.taixe[i]);
-          console.log(this.taixe[i]);
+    //    console.log(obj['.key']);
+        var path = 'taixe-info' + '/' + this.taixe[i]['.key'];
+        if (distance < radius && this.taixe[i].status !=='DANG-CHO-KHACH') { // gui thong bao co khach toi tai xe trong ban kinh radius
+        //  if(this.taixe[i].status !=='WAITING-CONFIRM'){  // tai xe khong co khach cho
+            let pathkey = path + '/keyuser';
+            let updateKey = db.ref(pathkey);
+            updateKey.push(obj['.key']);
+            //console.log(this.taixe[i].key)
+
+      //    }
+        //  else if (this.taixe[i].status ==='WAITING-CONFIRM'){  // tai xe dang chua khach cho
+      //        console.log(this.taixe[i].keyuser);
+        //  }
         }
+
       }
-      let pathUser = 'user-info/' + obj['.key'];
-      delete obj['.key'];
-      let updateUser = db.ref(pathUser);
-
-      obj.status = 'DANG-TIM-XE';
-      updateUser.set(obj);
-      //user['.key'] = pathUser.slice(pathUser.indexOf('/') + 1);
-
-      //  tai xe chac chan khong co hanh khach trong hang doi
-      // if (typeof taixeMin !== 'undefined') {
-      //   var path = 'taixe-info' + '/' + taixeMin['.key'];
-      //   console.log(path);
-      //   var updateTaixe = db.ref(path);
-      //   taixeMin.keyUser = obj['.key'];
-      //   taixeMin.status = 'CHO-CONFIRM';
-      //   delete taixeMin['.key'];
-      //   updateTaixe.set(taixeMin);
-      //   //  this.dieuxeStatus = true;
-      //   //  window.setTimeOut(5000);
-      //   //    console.log(taixeMin);
-      // } else {
-      //   this.dieuxeStatus = false;
-      //   //taixeMin.status='DANG-CHO-KHACH'
-      //
-      //   console.log('ko co xe');
+      var updateLinks = {};
+      updateLinks['user-info'+'/'+obj['.key']+'/status'] = 'DANG-TIM-XE';
+      // for(let i = 0; i < this.taixe.length; i++) {
+      //   updateLinks['taixe-info'+'/'+this.taixe[i]['.key']+'/status'] = 'WAITING-CONFIRM';
       // }
-    }
+      db.ref().update(updateLinks);
+   }
   },
   created() {
     //  this.label=
