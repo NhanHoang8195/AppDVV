@@ -2,10 +2,10 @@
 <div>
   <div class="col-sm-5">
     <gmap-map :center="center" :zoom="4" style="height: 300px">
-      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" v-if="marker.status!=='DA-CO-XE' && marker.status!=='KET-THUC'" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'K'"
-        :icon="'./src/assets/images/khach.png'"></gmap-marker>
+      <gmap-marker :key="marker.date" v-for="(marker, index) in markers" v-if="marker.status!=='DA-CO-XE' && marker.status!=='KET-THUC' && marker.status!=='CAN-DINH-VI'" :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)"
+        @dragend="dragMarker($event, marker)" :label="'K'" :icon="'./src/assets/images/khach.png'"></gmap-marker>
       <template v-for="(marker, i) in taixe">
-        <gmap-marker :key="i" v-if="marker.status!=='DANG-CHO-KHACH'"  :position="marker.location" :clickable="true" :draggable="true" @click="clickMarker($event,marker)" @dragend="dragMarker($event, marker)" :label="'T'" :icon="'./src/assets/images/taixe.png'" ></gmap-marker>
+        <gmap-marker :key="i" v-if="marker.status!=='DANG-CHO-KHACH'"  :position="marker.location" :clickable="true" :draggable="false" @click="clickMarker($event,marker)":label="'T'" :icon="'./src/assets/images/taixe.png'" ></gmap-marker>
       </template>
     </gmap-map>
     <template v-if="displayInfo">
@@ -35,7 +35,7 @@
                     <div class="modal-content">
                       <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="myModalLabel">Bạn muốn chọn {{obj.address}} làm địa chỉ mới?</h4>
+                        <h4 class="modal-title" id="myModalLabel">Bạn muốn chọn {{reverse.address}} làm địa chỉ mới?</h4>
                       </div>
                       <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
@@ -168,7 +168,6 @@ export default {
       }, {}).catch(() => {
         alert('error');
       });
-      //this.displayDialog = true;
     },
     clickMarker: function(event, obj) { // click vao 1 marker hien len info cua maker do
       this.displayInfo = true;
@@ -198,69 +197,43 @@ export default {
 
     },
     saveChange: function(obj) {
-      var path = 'user-info' + '/' + obj['.key'];
-      var newModel = db.ref(path);
+      var updateLinks = {};
       if (this.newAddress.hasOwnProperty('formatted_address')) {
-        let newDataModel = {
-          address: obj.address,
-          phone: obj.phone,
-          typeCar: obj.typeCar,
-          date: obj.date,
-          note: obj.note,
-          location: this.newAddress.geometry.location,
-          status: "DA-DINH-VI"
-        };
-        newModel.set(newDataModel);
+        updateLinks['user-info/' + obj['.key'] + '/location'] = this.newAddress.geometry.location;
         this.newAddress = {};
       } else {
-        delete obj['.key'];
-        newModel.set(obj);
-
+        updateLinks['user-info/' + obj['.key'] + '/location'] = this.obj.location;
       }
-
-
-
+      updateLinks['user-info/' + obj['.key'] + '/status'] = 'DA-DINH-VI'
+      db.ref().update(updateLinks);
     },
     sendMarker: function(obj) {
-      if (typeof obj.formatted_address === 'undefined') { // drag send object
+
+      if (typeof obj.formatted_address === 'undefined') { // Search
         this.obj = obj;
       } else {
         this.obj.location = obj.geometry.location;
+        console.log(this.obj);
       }
     },
     dieuxe: function(obj) {
-      //this.dieuxeStatus = true;
       let source = new google.maps.LatLng(obj.location.lat, obj.location.lng);
       let radius = 6378137; // ban kinh tim kiem
       for (let i = 0; i < this.taixe.length; i++) {
         let temp = new google.maps.LatLng(this.taixe[i].location.lat, this.taixe[i].location.lng);
         let distance = google.maps.geometry.spherical.computeDistanceBetween(source, temp);
-    //    console.log(obj['.key']);
         var path = 'taixe-info' + '/' + this.taixe[i]['.key'];
-        if (distance < radius && this.taixe[i].status !=='DANG-CHO-KHACH') { // gui thong bao co khach toi tai xe trong ban kinh radius
-        //  if(this.taixe[i].status !=='WAITING-CONFIRM'){  // tai xe khong co khach cho
-            let pathkey = path + '/keyuser';
-            let updateKey = db.ref(pathkey);
-            updateKey.push(obj['.key']);
-            //console.log(this.taixe[i].key)
-
-      //    }
-        //  else if (this.taixe[i].status ==='WAITING-CONFIRM'){  // tai xe dang chua khach cho
-      //        console.log(this.taixe[i].keyuser);
-        //  }
+        if (distance < radius && this.taixe[i].status !== 'DANG-CHO-KHACH') { // gui thong bao co khach toi tai xe trong ban kinh radius
+          let pathkey = path + '/keyuser';
+          let updateKey = db.ref(pathkey);
+          updateKey.push(obj['.key']);
         }
 
       }
       var updateLinks = {};
-      updateLinks['user-info'+'/'+obj['.key']+'/status'] = 'DANG-TIM-XE';
-      // for(let i = 0; i < this.taixe.length; i++) {
-      //   updateLinks['taixe-info'+'/'+this.taixe[i]['.key']+'/status'] = 'WAITING-CONFIRM';
-      // }
+      updateLinks['user-info' + '/' + obj['.key'] + '/status'] = 'DANG-TIM-XE';
       db.ref().update(updateLinks);
-   }
-  },
-  created() {
-    //  this.label=
+    }
   }
 }
 </script>
